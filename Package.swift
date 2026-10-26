@@ -5,8 +5,12 @@ import PackageDescription
 
 let package = Package(
     name: "mispaysdk",
+    platforms: [
+        // CryptoKit (AES.GCM / HMAC) requires iOS 13 / macOS 10.15.
+        .iOS(.v13),
+        .macOS(.v10_15),
+    ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "mispaysdk",
             targets: ["mispaysdk"]),

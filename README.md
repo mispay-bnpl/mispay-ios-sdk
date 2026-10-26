@@ -1,93 +1,307 @@
-# mispay-ios-sdk
+# **MISPay iOS SDK Example App**
 
+This repository provides a working example of how to integrate the **MISPay iOS SDK** into an iOS application. The example demonstrates key functionalities and serves as a reference for developers using the MISPay SDK.
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+The SDK handles the complete documented MIS Pay Buy-Now-Pay-Later checkout flow:
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.core.finbyte.cloud/jouri/mobile/mispay-ios-sdk.git
-git branch -M main
-git push -uf origin main
+MISPay.initialize(appId:appSecret:environment:)            once per app launch
+MISPay.startCheckout(from:request:completion:)             per purchase
+        │
+        ├─ 1. GET /token            (x-app-id + x-app-secret headers)
+        ├─ 2. Decrypt token         (AES-256-GCM, PBKDF2-HMAC-SHA256 40 000 iterations — automatic, CryptoKit)
+        ├─ 3. Cache JWT             (~8 h validity, auto-refresh on expiry or ME10/ME11)
+        ├─ 4. POST /start-checkout  (Bearer JWT + full order body; one automatic retry on ME10/ME11)
+        └─ 5. Present result.url    in the MISPay WKWebView (hosted MIS Pay checkout pages)
+                │
+                ├─ customer completes  →  .success(token)
+                ├─ customer closes     →  .cancelled
+                └─ any step fails      →  .failure(MISPayError)
 ```
 
-## Integrate with your tools
+The completion is always invoked on the **main thread**, exactly **once** per call.
 
-- [ ] [Set up project integrations](https://gitlab.core.finbyte.cloud/jouri/mobile/mispay-ios-sdk/-/settings/integrations)
+---
 
-## Collaborate with your team
+## **Features**
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+- Example integration of the MISPay iOS SDK (Swift Package + runnable demo app).
+- Demonstrates the complete payment flow: token → start-checkout → hosted checkout WKWebView.
+- Configurable environment for testing (`.sandbox`, `.production` or a custom HTTPS base URL).
+- Typed results with MIS Pay error codes (`ME01`–`ME97`, `E9997`) surfaced to your app.
 
-## Test and Deploy
+---
 
-Use the built-in continuous integration in GitLab.
+## **Requirements**
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- **Xcode**: 12 or higher.
+- **iOS Deployment Target**: 13+.
+- **Swift Package Manager** (built in).
+- [xcodegen](https://github.com/yonaskolb/XcodeGen) to generate the demo project (`brew install xcodegen`).
+- **Credentials** (`x-app-id`, `x-app-secret`) provided by the MIS Pay Technical Team.
 
-***
+---
 
-# Editing this README
+## **Setup Instructions**
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### **1. Download the Example App**
 
-## Suggestions for a good README
+- Download the project as a ZIP file from the repository, or clone it:
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```bash
+git clone <this repository URL>
+```
 
-## Name
-Choose a self-explaining name for your project.
+- Extract the ZIP file (if downloaded) to a local directory.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### **2. Open the Project in Xcode**
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+- Generate the Xcode project once (the `DemoApp/MISPayDemo.xcodeproj` is generated, not committed):
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+brew install xcodegen        # once
+cd DemoApp
+xcodegen generate
+open MISPayDemo.xcodeproj
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### **3. Configure Your SDK Credentials**
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+- Copy the credential template and fill in your sandbox credentials from the MIS Pay Technical Team:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+cp Sources/Credentials.plist Sources/Credentials.local.plist   # then edit values
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+- `DemoApp/Sources/Credentials.local.plist` (gitignored — never commit it):
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>MISPAY_APP_ID</key>
+    <string>REPLACE_ME</string>
+    <key>MISPAY_APP_SECRET</key>
+    <string>REPLACE_ME</string>
+</dict>
+</plist>
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Without this file the demo shows a "Credentials missing" message and disables the Pay button.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### **4. Verify MISPay SDK Version**
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+The demo uses the SDK from the local Swift package in this repository (`Package.swift`). For your own app, add the package:
 
-## License
-For open source projects, say how it is licensed.
+```swift
+dependencies: [
+    .package(url: "https://gitlab.com/mispay/v1/sdks/mispay-ios-sdk.git", from: "2.0.0"),
+]
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+> **Note:** Ensure you use the latest compatible version of the MISPay SDK for your app. The SDK has no third-party dependencies — only Foundation, CryptoKit and WebKit.
+
+### **5. Build and Run the App**
+
+- Select an iPhone simulator (or a real device) and press **⌘R** in Xcode.
+- Tap **Pay with MISPay** in the demo to start a sandbox checkout.
+
+---
+
+## **Integrate the SDK Into Your Existing App**
+
+This section is for merchants adding the SDK to their **own** app. To try the flow first, run the example app above.
+
+**Prerequisites**
+
+- Xcode 12 or higher; an app with an iOS **13.0+** deployment target.
+- Swift Package Manager (built into Xcode — no CocoaPods/Carthage needed).
+- Credentials (`x-app-id`, `x-app-secret`) from the MIS Pay Technical Team.
+
+### **1. Add the Swift Package**
+
+In Xcode: **File → Add Package Dependencies…** → paste the repository URL:
+
+```text
+https://gitlab.com/mispay/v1/sdks/mispay-ios-sdk.git
+```
+
+Dependency rule: **Up to Next Major from `2.0.0`** (if no version tag is published for your account yet, use the `main` branch rule instead). Add the **mispaysdk** library to your app target.
+
+The SDK has **zero third-party dependencies** — only Foundation, CryptoKit and WebKit — so nothing else is added to your dependency graph. Access to the private repository requires your GitLab credentials (SSH key or access token, as provided by the MIS Pay team).
+
+### **2. Project Setup — Almost Nothing**
+
+No pods, no build scripts, no `Info.plist` entries required: the SDK presents its own full-screen checkout controller and WKWebView storage (localStorage, cookies) works out of the box.
+
+Optional: the checkout pages may request the customer's location. If you want that, add `NSLocationWhenInUseUsageDescription` to your `Info.plist` and request authorization before starting a checkout — checkout works without it.
+
+### **3. Initialize the SDK**
+
+Once per app launch, before the first checkout — e.g. in `application(_:didFinishLaunchingWithOptions:)` or your `App`/`SceneDelegate` init:
+
+```swift
+import mispaysdk
+
+MISPay.initialize(
+    appId: "YOUR_X_APP_ID",        // from the MIS Pay Technical Team
+    appSecret: "YOUR_X_APP_SECRET",
+    environment: .sandbox           // .production, or .custom(baseUrl: "https://…")
+)
+```
+
+`.custom` requires `https://`. Blank credentials intentionally crash (`precondition`) so misconfiguration is caught before release — initialize with real values. Keep the secret out of version control; in production prefer injecting it from your build config or a server handshake rather than hardcoding.
+
+### **4. Build the Order and Start Checkout**
+
+```swift
+import mispaysdk   // MISPay, CheckoutRequest and nested models all live in this module
+
+let request = CheckoutRequest(
+    orderId: "ORDER-\(Int(Date().timeIntervalSince1970))",  // unique per order
+    totalPrice: "215",           // all amounts are numeric STRINGS, by API contract
+    shippingAmount: "0",
+    vat: "15",
+    purchaseAmount: "200",       // must equal totalPrice + shippingAmount + vat − discount.amount
+    purchaseCurrency: "SAR",
+    lang: "en",                  // "en" or "ar"
+    discount: Discount(percentage: "15", amount: "30", voucherName: "MIS-30"),  // optional
+    customerDetails: CustomerDetails(
+        mobileNumber: "+966520006780",  // mandatory: 05…, 9665… or +9665… format
+        firstName: "First", lastName: "Last", email: "customer@example.com"
+    ),
+    orderDetails: OrderDetails(items: [
+        OrderItem(
+            quantity: "2", unitPrice: "100",          // mandatory, numeric strings
+            nameEnglish: "Item name",                  // nameArabic or nameEnglish required
+            id: "OR12345", sku: "1234568abcd",
+            itemUrl: "https://itemurl.com", imageUrl: "https://imageurl.com"
+        ),
+    ]),
+    shippingDetails: ShippingDetails(city: "riyadh", district: "riyadh", line1: "street"), // optional
+    callbackUri: "https://example.com/mispay-callback"  // required when your MIS Pay callback setting is "Dynamic"
+)
+
+MISPay.startCheckout(
+    from: self,                     // ⚠ must not already present another view controller
+    request: request,
+    onCheckoutStarted: { url, trackId in
+        // Checkout screen presented — persist trackId for server-side status polling.
+    }
+) { result in
+    switch result {
+    case .success(let token):
+        verifyTokenServerSide(token)               // see step 5
+    case .cancelled:
+        show("Customer left the checkout")
+    case .failure(let error):
+        show("Error \(error.meCode ?? ""): \(error.localizedDescription)")
+    }
+}
+```
+
+Guarantees: the completion runs on the **main thread**, exactly **once** per call. Validation problems are delivered as `.failure` (never thrown). Only one checkout can be active at a time — a second call fails fast with `.failure`. Uninitialized SDK also yields `.failure` (with a clear message), not a crash.
+
+> **Amount formula:** keep `totalPrice + shippingAmount + vat − discount.amount = purchaseAmount` exact — the SDK logs a warning on mismatch and the MIS Pay API **rejects** mismatches with `ME18`.
+
+### **5. Verify the Token Server-Side**
+
+`.success(token)` means the customer finished the MIS Pay pages — the token encodes the payment outcome and **must be verified by your backend** (see [doc.mispay.co](https://doc.mispay.co)). Authoritative fallbacks that work even if your app is killed: your `callbackUri` webhook and `GET /track-checkout/{trackId}` polling with the `trackId` from `onCheckoutStarted`.
+
+### **6. Troubleshooting**
+
+| Symptom / code | Meaning and fix |
+| --- | --- |
+| `Cannot present the checkout: … already has a presented view controller` | The `from:` controller is already presenting — pass a clean presenter (or dismiss first). |
+| `ME01` | Credentials rejected — check `appId`/`appSecret`. |
+| `ME04` | Session missing — call `MISPay.initialize` before `startCheckout`. |
+| `ME10` / `ME11` | Authorization token invalid/expired — the SDK refreshes and retries once automatically; persistent failures mean credentials/environment mismatch. |
+| `ME13` | Order below the minimum amount. |
+| `ME18` | Order amounts don't satisfy the purchase-amount formula — fix the amounts. |
+| `ME97` | `callbackUri` missing — required for accounts with a Dynamic callback setting. |
+| `E9997` | Unexpected MIS Pay server error — retry, and report with the `x-trace-id` header if captured. |
+| Sandbox requests time out **in the Simulator** (other sites load fine) | Known IPv6/VPN condition — see the fix near the end of this README. |
+
+**Next steps:** full function reference in [FUNCTIONS.md](FUNCTIONS.md) · official docs: [doc.mispay.co](https://doc.mispay.co)
+
+---
+
+## **Repository Structure**
+
+```
+├── README.md                       # Documentation file
+├── FUNCTIONS.md                    # Full SDK function reference
+├── Package.swift                   # Swift package manifest
+├── Sources/mispaysdk/
+│   ├── MISPay.swift                # Public entry point
+│   ├── MISPayResult.swift          # .success / .cancelled / .failure
+│   ├── MISPayError.swift           # Typed error (meCode)
+│   ├── MISPayEnvironment.swift     # .sandbox / .production / .custom
+│   ├── CheckoutWebViewController.swift  # Checkout WKWebView controller
+│   ├── mispaysdk.swift             # Legacy 1.x entry point (deprecated)
+│   ├── Crypto/                     # AES-256-GCM token decryption (CryptoKit)
+│   ├── Network/                    # /token and /start-checkout client
+│   ├── Token/                      # JWT cache (~8 h)
+│   └── Model/                      # CheckoutRequest + nested models
+├── Tests/mispaysdkTests/           # Unit tests (swift test)
+└── DemoApp/
+    ├── project.yml                 # xcodegen spec → MISPayDemo.xcodeproj
+    └── Sources/
+        ├── DemoViewController.swift    # One-screen demo (see Usage)
+        ├── DemoCredentials.swift   # Credentials loader
+        ├── Credentials.plist       # Committed template (REPLACE_ME)
+        └── Credentials.local.plist # Your sandbox credentials (gitignored)
+```
+
+---
+
+## **Usage Instructions**
+
+1. Run the demo app and tap **Pay with MISPay** to see the full checkout flow (token → start-checkout → hosted checkout pages → typed result). The demo shows the `trackId` when the checkout opens, the token prefix on success, `CANCELLED` on close/back, and typed errors with ME codes.
+2. Refer to `DemoApp/Sources/DemoViewController.swift` for implementation details of the MISPay SDK — it initializes the SDK, builds the docs sample order and handles every result type.
+3. To integrate the SDK into your own app, follow [Integrate the SDK Into Your Existing App](#integrate-the-sdk-into-your-existing-app) above and the full function reference in [FUNCTIONS.md](FUNCTIONS.md).
+4. To run the SDK unit tests on macOS (includes a live sandbox probe when credentials exist):
+
+```bash
+swift test
+```
+
+---
+
+## **Important Notes**
+
+- **Do not hardcode sensitive credentials** (e.g., `MISPAY_APP_ID`, `MISPAY_APP_SECRET`) in production apps. This example reads them from a gitignored plist for testing purposes only. Use secure methods, such as the Keychain or server-side configurations, for production environments.
+- `DemoApp/Sources/Credentials.local.plist` is **gitignored** — never commit credentials.
+- **You can check all the supported functions here: [Functions](FUNCTIONS.md)**
+
+### Requests to the SANDBOX time out in the Simulator (other sites load fine)
+
+This machine-level condition is caused by the sandbox being dual-stack (it publishes
+IPv6 AAAA records — production does not) combined with VPN/tunnel network extensions
+on the Mac (Tailscale, Proton, iCloud Private Relay): simulator processes can keep
+choosing a tunnel IPv6 path that stalls, until the request times out.
+`xcrun simctl erase` sometimes helps (resets per-device path state) but it recurs.
+Durable fixes, best first:
+
+1. Pin the sandbox host to IPv4 (10-second fix, reversible):
+   ```bash
+   echo "104.21.12.195 api-sandbox.mispay.dev" | sudo tee -a /etc/hosts
+   # undo later: sudo sed -i '' '/api-sandbox/d' /etc/hosts
+   ```
+2. Quit tunnel apps fully (e.g. Tailscale menu-bar → Quit — its network extension
+   stays loaded even when "disconnected").
+3. Test on a real device (unaffected) or on the production environment.
+
+Also worth reporting to the MIS Pay team: making the sandbox DNS IPv4-only like
+production would eliminate this entire class of failures for developers on
+VPN/limited-IPv6 networks.
+
+---
+
+## **Support**
+
+For issues or questions about the MISPay SDK, contact **MIS Pay Technical Team / Integration Support** at [partners-support@mispay.co](mailto:partners-support@mispay.co)
+
+- Official docs: <https://doc.mispay.co>
+- When reporting issues, include the `x-trace-id` response header if you captured it.
