@@ -6,3 +6,7 @@ DerivedData/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
+
+# Demo app: generated Xcode project + local credentials (never commit)
+/DemoApp/MISPayDemo.xcodeproj
+/DemoApp/Sources/Credentials.local.plist
